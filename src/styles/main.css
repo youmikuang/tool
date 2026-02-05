@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import './variables.css';
+
+
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.btn:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-color);
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.segmented {
+  display: inline-flex;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.segmented .btn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+}
+
+.segmented .btn.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.5rem;
+}
+
+.icon-only {
+  margin-right: 0;
+}
+
+/* CodeMirror tweaks */
+:root :where(.cm-editor) {
+  background: var(--editor-bg);
+  border: 1px solid var(--editor-border);
+  box-shadow: var(--shadow-sm);
+}
+
+:root :where(.cm-gutters) {
+  background: var(--editor-gutter);
+  border-right: 1px solid var(--editor-border);
+}
+
+:root :where(.cm-selectionBackground) {
+  background: var(--editor-selection) !important;
+}
+
+:root :where(.cm-scroller) {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
