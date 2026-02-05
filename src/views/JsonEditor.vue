@@ -233,15 +233,15 @@ const formatTime = (timestamp: number) => {
 
         <div class="tool-group">
           <button class="tool-btn" @click="processJson('escape')">
-            <img src="@/assets/img/Serialize.svg" alt="serialize" width="23" height="23" />
+            <img src="@/assets/img/Serialize.svg" alt="serialize" width="25" height="25" />
             {{ t('escape') }}
           </button>
           <button class="tool-btn" @click="processJson('unescape')">
-            <img src="@/assets/img/Deserialize.svg" alt="deserialize" width="23" height="23" />
+            <img src="@/assets/img/Deserialize.svg" alt="deserialize" width="25" height="25" />
             {{ t('unescape') }}
           </button>
           <button class="tool-btn" @click="processJson('minify')">
-            <BaseIcon name="unescape" :size="16" />
+            <BaseIcon name="minify" :size="16" />
             {{ t('minify') }}
           </button>
         </div>

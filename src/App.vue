@@ -1,60 +1,17 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { nextTick } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import { useI18n } from '@/composables/useI18n'
-import JsonEditor from '@/components/business/JsonEditor.vue'
-import JsonDiffEditor from '@/components/business/JsonDiffEditor.vue'
-import SqlEditor from '@/components/business/SqlEditor.vue'
+import { useRouter } from '@/composables/useRouter'
+import JsonEditor from '@/views/JsonEditor.vue'
+import JsonDiffEditor from '@/views/JsonDiffEditor.vue'
+import SqlEditor from '@/views/SqlEditor.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import ToastContainer from '@/components/base/ToastContainer.vue'
 
 const { isDark, toggleTheme } = useTheme()
 const { t, localeLabel, toggleLocale } = useI18n()
-const activeTab = ref<'json' | 'jsonDiff' | 'sql'>('json')
-
-// Pathname-based routing (History API)
-const routeMap: Record<string, 'json' | 'jsonDiff' | 'sql'> = {
-  '/': 'json',
-  '/diff': 'jsonDiff',
-  '/sql': 'sql',
-}
-
-const reverseRouteMap: Record<string, string> = {
-  json: '/',
-  jsonDiff: '/diff',
-  sql: '/sql',
-}
-
-const getTabFromPath = (): 'json' | 'jsonDiff' | 'sql' => {
-  const path = window.location.pathname
-  return routeMap[path] || 'json'
-}
-
-const updatePathFromTab = (tab: 'json' | 'jsonDiff' | 'sql') => {
-  const newPath = reverseRouteMap[tab]
-  if (window.location.pathname !== newPath) {
-    history.pushState(null, '', newPath)
-  }
-}
-
-// Initialize from URL path
-onMounted(() => {
-  activeTab.value = getTabFromPath()
-  window.addEventListener('popstate', handlePopState)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('popstate', handlePopState)
-})
-
-const handlePopState = () => {
-  activeTab.value = getTabFromPath()
-}
-
-// Update URL when tab changes
-watch(activeTab, (newTab) => {
-  updatePathFromTab(newTab)
-})
+const { activeTab } = useRouter()
 
 // Theme toggle with View Transitions API (BewlyCat style)
 function handleThemeToggle(e: MouseEvent) {
@@ -320,7 +277,7 @@ function handleThemeToggle(e: MouseEvent) {
 }
 
 .lang-btn {
-  padding: 8px 25px;
+  padding: 8px 15px;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
@@ -347,7 +304,7 @@ function handleThemeToggle(e: MouseEvent) {
 }
 
 .btn-icon {
-  width: 60px;
+  width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
