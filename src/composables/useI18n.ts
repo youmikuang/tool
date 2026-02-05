@@ -141,7 +141,16 @@ const translations = {
 
 type TranslationKey = keyof typeof translations.en
 
-const locale = ref<Locale>('en')
+const STORAGE_KEY = 'json-editor-locale'
+// Get initial locale from storage or default to 'en'
+const savedLocale = localStorage.getItem(STORAGE_KEY) as Locale | null
+const locale = ref<Locale>(savedLocale && ['en', 'zh'].includes(savedLocale) ? savedLocale : 'en')
+
+// Watch for changes and save to storage
+import { watch } from 'vue'
+watch(locale, (newValue) => {
+  localStorage.setItem(STORAGE_KEY, newValue)
+})
 
 export function useI18n() {
   const t = (key: TranslationKey): string => {
