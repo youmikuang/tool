@@ -216,6 +216,7 @@ function handleThemeToggle(e: MouseEvent) {
   align-items: center;
   gap: var(--space-2);
   user-select: none;
+  height: 100%;
 }
 
 .logo-icon {
