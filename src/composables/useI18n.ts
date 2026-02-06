@@ -69,6 +69,10 @@ const translations = {
     noHistory: 'No history yet',
     clearHistory: 'Clear History',
     historyCleared: 'History cleared',
+
+    // JsonEditor New
+    preserveEscape: 'Preserve Escape',
+    clickToEdit: 'Click key-value to edit',
   },
   zh: {
     // Header
@@ -136,6 +140,10 @@ const translations = {
     noHistory: '暂无历史记录',
     clearHistory: '清空历史',
     historyCleared: '历史已清空',
+
+    // JsonEditor New
+    preserveEscape: '保留转义',
+    clickToEdit: '可点击键值进行编辑',
   },
 } as const
 

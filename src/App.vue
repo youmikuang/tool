@@ -170,9 +170,9 @@ function handleThemeToggle(e: MouseEvent) {
 
     <footer class="footer">
       <div class="footer-content">
-        <span class="copyright">Copyright © 2026 GAOHENG</span>
+        <span class="copyright">Copyright © 2026 GAOHENG & </span>
         <span class="footer-links">
-          <a href="https://beian.miit.gov.cn">&京ICP备16016944号-3</a>
+          <a href="https://beian.miit.gov.cn">京ICP备16016944号-3</a>
         </span>
       </div>
     </footer>
@@ -348,7 +348,7 @@ function handleThemeToggle(e: MouseEvent) {
 .footer-content {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 4px;
   font-size: 0.8rem;
   color: var(--text-muted);
 }

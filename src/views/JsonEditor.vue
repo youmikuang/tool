@@ -15,6 +15,14 @@ const { history, hasHistory, addToHistory, clearHistory } = useHistory('json-edi
 const showHistoryDropdown = ref(false)
 const historyWrapperRef = ref<HTMLElement | null>(null)
 
+// Settings
+const preserveEscape = ref(true)
+
+// Resizable divider state
+const leftPaneWidth = ref(30) // percentage - left 30%, right 70%
+const isResizing = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+
 // Click outside to close dropdown
 const handleClickOutside = (event: MouseEvent) => {
   if (historyWrapperRef.value && !historyWrapperRef.value.contains(event.target as Node)) {
@@ -22,13 +30,60 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+// Resizer handlers
+const startResize = (e: MouseEvent) => {
+  isResizing.value = true
+  document.addEventListener('mousemove', doResize)
+  document.addEventListener('mouseup', stopResize)
+  e.preventDefault()
+}
+
+const doResize = (e: MouseEvent) => {
+  if (!isResizing.value || !containerRef.value) return
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
+  leftPaneWidth.value = Math.max(20, Math.min(80, newWidth))
+}
+
+const stopResize = () => {
+  isResizing.value = false
+  document.removeEventListener('mousemove', doResize)
+  document.removeEventListener('mouseup', stopResize)
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('mousemove', doResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('keydown', handleKeyDown)
 })
+
+// Fullscreen state
+const isFullscreen = ref(false)
+
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value
+}
+
+// Keyboard shortcut for fullscreen - only when not typing in an input
+const handleKeyDown = (e: KeyboardEvent) => {
+  // Check if user is typing in an input/textarea
+  const activeElement = document.activeElement
+  const isTyping =
+    activeElement?.tagName === 'INPUT' ||
+    activeElement?.tagName === 'TEXTAREA' ||
+    activeElement?.classList.contains('cm-content')
+
+  if (!isTyping && e.key.toLowerCase() === 'f') {
+    e.preventDefault()
+    toggleFullscreen()
+  }
+}
 
 // State
 const inputJson = ref('')
@@ -37,24 +92,98 @@ const error = ref<string | null>(null)
 const processing = ref(false)
 const isValidJson = ref(false)
 
-// Auto-parse JSON on input change
+// Sync control to prevent infinite loops
+const isSyncing = ref(false)
+
+// Last saved hash for deduplication
+const lastSavedHash = ref('')
+
+const getContentHash = (content: string): string => {
+  return content.trim()
+}
+
+// Debounce timer for history saving
+let historyDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const HISTORY_DEBOUNCE_MS = 1000
+
+const saveToHistoryDebounced = (content: string) => {
+  // Clear existing timer
+  if (historyDebounceTimer) {
+    clearTimeout(historyDebounceTimer)
+  }
+
+  // Set new timer - save after 1 second of inactivity
+  historyDebounceTimer = setTimeout(() => {
+    const currentHash = getContentHash(content)
+    if (currentHash !== lastSavedHash.value) {
+      addToHistory(content)
+      lastSavedHash.value = currentHash
+    }
+  }, HISTORY_DEBOUNCE_MS)
+}
+
+// Auto-parse JSON on LEFT input change -> sync to RIGHT (formatted)
+// Also handles escaped JSON by trying to unescape first
 watch(inputJson, (newValue) => {
+  if (isSyncing.value) return
+
   if (!newValue.trim()) {
+    isSyncing.value = true
     outputJson.value = ''
+    isSyncing.value = false
     error.value = null
     isValidJson.value = false
     return
   }
 
+  let parsed: any
+  let jsonToParse = newValue
+
+  // Try direct parse first
   try {
-    const parsed = JSON.parse(newValue)
-    outputJson.value = JSON.stringify(parsed, null, 2)
-    error.value = null
-    isValidJson.value = true
+    parsed = JSON.parse(jsonToParse)
   } catch (e) {
-    outputJson.value = ''
-    error.value = null // Don't show error during typing
-    isValidJson.value = false
+    // If direct parse fails, try to unescape and parse
+    try {
+      const unescaped = unescapeJson(newValue)
+      parsed = JSON.parse(unescaped)
+      jsonToParse = unescaped
+    } catch (e2) {
+      // Still invalid - don't clear output, just update validation state
+      error.value = null
+      isValidJson.value = false
+      return
+    }
+  }
+
+  const formatted = JSON.stringify(parsed, null, 2)
+  isSyncing.value = true
+  outputJson.value = formatted
+  isSyncing.value = false
+  error.value = null
+  isValidJson.value = true
+
+  // Save to history when valid JSON is entered (debounced)
+  saveToHistoryDebounced(formatted)
+})
+
+// Sync RIGHT output changes -> to LEFT input
+watch(outputJson, (newValue) => {
+  if (isSyncing.value) return
+
+  // Sync output to input
+  isSyncing.value = true
+  inputJson.value = newValue
+  isSyncing.value = false
+
+  // If valid JSON, save to history (debounced)
+  if (newValue.trim()) {
+    try {
+      JSON.parse(newValue)
+      saveToHistoryDebounced(newValue)
+    } catch (e) {
+      // Invalid JSON, don't save
+    }
   }
 })
 
@@ -65,43 +194,38 @@ const stats = computed(() => ({
 }))
 
 // Actions
-const processJson = (mode: 'format' | 'minify' | 'escape' | 'unescape') => {
+const processJson = (mode: 'minify' | 'escape' | 'unescape') => {
   if (!inputJson.value.trim()) return
 
   processing.value = true
   error.value = null
 
   try {
+    let result = ''
     switch (mode) {
-      case 'format':
-        outputJson.value = formatJson(inputJson.value)
-        break
       case 'minify':
-        outputJson.value = minifyJson(inputJson.value)
+        result = minifyJson(inputJson.value)
         break
       case 'escape':
-        outputJson.value = escapeJson(inputJson.value)
+        result = escapeJson(inputJson.value)
         break
       case 'unescape':
-        outputJson.value = unescapeJson(inputJson.value)
+        result = unescapeJson(inputJson.value)
         break
     }
+
+    // Update both sides
+    isSyncing.value = true
+    outputJson.value = result
+    inputJson.value = result
+    isSyncing.value = false
   } catch (e: any) {
     error.value = e.message
   } finally {
     setTimeout(() => {
       processing.value = false
 
-      // Save to history on successful processing
-      if (!error.value) {
-        addToHistory(inputJson.value)
-      }
-
-      // Toast messages
       switch (mode) {
-        case 'format':
-          showToast(t('formatted'))
-          break
         case 'minify':
           showToast(t('minified'))
           break
@@ -138,6 +262,7 @@ const clearAll = () => {
   inputJson.value = ''
   outputJson.value = ''
   error.value = null
+  lastSavedHash.value = ''
   showToast(t('cleared'), 'info')
 }
 
@@ -147,7 +272,7 @@ const loadSample = () => {
       project: 'A Tool Website',
       features: ['Json', 'Json Diff', 'Sql Format'],
       active: true,
-      version: 1.0,
+      version: 1.1,
     },
     null,
     2,
@@ -172,378 +297,234 @@ const formatTime = (timestamp: number) => {
 </script>
 
 <template>
-  <div class="editor-container">
-    <div class="editor-layout">
-      <!-- Left Pane: Input -->
-      <div class="pane">
-        <div class="pane-header">
-          <div class="pane-title">
-            <span class="status-dot" :class="{ active: inputJson.trim() }"></span>
-            {{ t('inputJson') }}
-          </div>
-          <div class="pane-actions">
-            <div ref="historyWrapperRef" class="history-wrapper">
-              <button
-                class="icon-action"
-                @click="showHistoryDropdown = !showHistoryDropdown"
-                :title="t('history')"
-              >
-                <BaseIcon name="clock" :size="16" />
-                &nbsp;&nbsp;{{ t('history') }}&nbsp;&nbsp;
-              </button>
-              <div v-if="showHistoryDropdown" class="history-dropdown">
-                <div class="history-header">
-                  <span>{{ t('history') }}</span>
-                  <button v-if="hasHistory" class="clear-btn" @click="handleClearHistory">
-                    {{ t('clearHistory') }}
-                  </button>
-                </div>
-                <div v-if="!hasHistory" class="history-empty">{{ t('noHistory') }}</div>
-                <div v-else class="history-list">
-                  <div
-                    v-for="(item, index) in history"
-                    :key="index"
-                    class="history-item"
-                    @click="loadFromHistory(item.content)"
-                  >
-                    <div class="history-preview">{{ item.preview }}</div>
-                    <div class="history-time">{{ formatTime(item.timestamp) }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="pane-meta">
-              <span class="meta-text">{{ stats.size }} B</span>
-              <span class="meta-divider">|</span>
-              <span class="meta-text">{{ stats.lines }} {{ t('lines') }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="editor-wrapper">
-          <CodeMirrorEditor v-model="inputJson" :placeholder="t('pasteJsonHere')" />
-        </div>
-      </div>
-
-      <!-- Center: Toolbar -->
-      <div class="center-toolbar">
-        <button class="format-btn" @click="processJson('format')">
-          <BaseIcon name="json" :size="16" />
-          {{ t('format') }}
-        </button>
-
-        <div class="tool-group">
-          <button class="tool-btn" @click="processJson('escape')">
-            <img src="@/assets/img/Serialize.svg" alt="serialize" width="25" height="25" />
-            {{ t('escape') }}
-          </button>
-          <button class="tool-btn" @click="processJson('unescape')">
-            <img src="@/assets/img/Deserialize.svg" alt="deserialize" width="25" height="25" />
-            {{ t('unescape') }}
-          </button>
-          <button class="tool-btn" @click="processJson('minify')">
-            <BaseIcon name="minify" :size="16" />
-            {{ t('minify') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Right Pane: Output -->
-      <div class="pane">
-        <div class="pane-header">
-          <div class="pane-title">
-            {{ t('output') }}
-            <span v-if="error" class="badge error">{{ t('invalid') }}</span>
-            <span v-else-if="outputJson" class="badge success">{{ t('valid') }}</span>
-          </div>
-          <div class="pane-actions">
-            <button class="icon-action" @click="copyOutput" :title="t('copy')">
-              <BaseIcon name="copy" :size="16" />
-              &nbsp;&nbsp;{{ t('copy') }}&nbsp;&nbsp;
-            </button>
-            <button class="icon-action" @click="downloadOutput" :title="t('download')">
-              <BaseIcon name="download" :size="16" />
-              &nbsp;&nbsp;{{ t('download') }}&nbsp;&nbsp;
-            </button>
-          </div>
-        </div>
-        <div class="editor-wrapper">
-          <CodeMirrorEditor
-            :model-value="outputJson"
-            :readonly="true"
-            :placeholder="t('resultWillAppear')"
-          />
-
-          <div v-if="error" class="error-toast">
-            <div class="error-title">{{ t('parsingError') }}</div>
-            <pre class="error-text">{{ error }}</pre>
-          </div>
-        </div>
+  <div class="json-editor-page" :class="{ fullscreen: isFullscreen }" ref="containerRef">
+    <!-- Left Pane: Input -->
+    <div class="input-pane" :style="{ width: leftPaneWidth + '%' }">
+      <div class="editor-area">
+        <CodeMirrorEditor v-model="inputJson" :placeholder="t('pasteJsonHere')" />
       </div>
     </div>
 
-    <!-- Bottom Actions -->
-    <div class="bottom-actions">
-      <button class="action-btn danger" @click="clearAll">
-        <BaseIcon name="clear" :size="16" />
-        {{ t('clear') }}
-      </button>
-      <button class="action-btn primary" @click="loadSample">
-        <BaseIcon name="fileText" :size="16" />
-        {{ t('loadSample') }}
-      </button>
+    <!-- Resizable Divider -->
+    <div class="pane-divider" :class="{ dragging: isResizing }" @mousedown="startResize"></div>
+
+    <!-- Right Pane: Toolbar + Output -->
+    <div class="output-pane" :style="{ width: 100 - leftPaneWidth + '%' }">
+      <!-- Horizontal Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="toolbar-btn" @click="processJson('minify')" :title="t('minify')">
+            <BaseIcon name="minify" :size="20" />
+          </button>
+          <button class="toolbar-btn" @click="processJson('escape')" :title="t('escape')">
+            <img src="@/assets/img/Serialize.svg" alt="serialize" width="20" height="20" />
+          </button>
+          <button class="toolbar-btn" @click="processJson('unescape')" :title="t('unescape')">
+            <img src="@/assets/img/Deserialize.svg" alt="deserialize" width="20" height="20" />
+          </button>
+          <button class="toolbar-btn danger" @click="clearAll" :title="t('clear')">
+            <BaseIcon name="clear" :size="20" />
+          </button>
+          <button class="toolbar-btn" @click="copyOutput" :title="t('copy')">
+            <BaseIcon name="copy" :size="20" />
+          </button>
+          <button class="toolbar-btn" @click="downloadOutput" :title="t('download')">
+            <BaseIcon name="download" :size="20" />
+          </button>
+          <button class="toolbar-btn" @click="loadSample" :title="t('loadSample')">
+            <BaseIcon name="fileText" :size="20" />
+          </button>
+
+          <!-- History Button -->
+          <div ref="historyWrapperRef" class="history-wrapper">
+            <button
+              class="toolbar-btn"
+              @click="showHistoryDropdown = !showHistoryDropdown"
+              :title="t('history')"
+            >
+              <BaseIcon name="clock" :size="20" />
+            </button>
+            <div v-if="showHistoryDropdown" class="history-dropdown">
+              <div class="history-header">
+                <span>{{ t('history') }}</span>
+                <button v-if="hasHistory" class="clear-btn" @click="handleClearHistory">
+                  {{ t('clearHistory') }}
+                </button>
+              </div>
+              <div v-if="!hasHistory" class="history-empty">{{ t('noHistory') }}</div>
+              <div v-else class="history-list">
+                <div
+                  v-for="(item, index) in history"
+                  :key="index"
+                  class="history-item"
+                  @click="loadFromHistory(item.content)"
+                >
+                  <div class="history-preview">{{ item.preview }}</div>
+                  <div class="history-time">{{ formatTime(item.timestamp) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <!-- Preserve Escape Checkbox -->
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="preserveEscape" />
+            <span class="checkmark"></span>
+            {{ t('preserveEscape') }}
+          </label>
+
+          <!-- Fullscreen Button -->
+          <button
+            class="toolbar-btn"
+            @click="toggleFullscreen"
+            :title="isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'"
+          >
+            <BaseIcon :name="isFullscreen ? 'shrink' : 'expand'" :size="20" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Output Editor (Editable) -->
+      <div class="editor-area">
+        <CodeMirrorEditor v-model="outputJson" :placeholder="t('clickToEdit')" />
+
+        <div v-if="error" class="error-toast">
+          <div class="error-title">{{ t('parsingError') }}</div>
+          <pre class="error-text">{{ error }}</pre>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.editor-container {
+.json-editor-page {
   display: flex;
-  flex-direction: column;
   width: 85%;
-  height: 90%;
+  height: 95%;
   margin: 0 auto;
   padding-top: 80px;
-  gap: 20px;
+  background: var(--bg-app);
+  user-select: none;
+  transition: all 0.3s ease;
 }
 
-.editor-layout {
-  display: flex;
-  flex: 1;
-  gap: 24px;
-  min-height: 0;
+.json-editor-page.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  z-index: 9999;
+  background: var(--bg-app);
 }
 
-.pane {
-  flex: 1;
+.input-pane {
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  margin: 16px;
+  margin-right: 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  min-width: 0;
 }
 
-.pane-header {
-  height: 52px;
+.pane-divider {
+  width: 8px;
+  background: var(--border-color);
+  margin: 16px 0;
+  cursor: col-resize;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.pane-divider:hover,
+.pane-divider.dragging {
+  background: var(--accent-color);
+}
+
+.output-pane {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  margin: 16px;
+  margin-left: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.editor-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toolbar */
+.toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  flex-shrink: 0;
-}
-
-.pane-title {
-  font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: background 0.2s;
-}
-
-.status-dot.active {
-  background: rgb(34 197 94 / var(--tw-bg-opacity, 1));
-}
-
-.pane-meta {
+.toolbar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  gap: 4px;
 }
 
-.meta-divider {
-  opacity: 0.4;
-}
-
-.pane-actions {
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.editor-wrapper {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Center Toolbar */
-.center-toolbar {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  width: 120px;
-  margin: 0 30px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 0;
 }
 
-.center-toolbar button {
-  margin-bottom: 10px;
-}
-
-.format-btn {
+.toolbar-btn {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 14px 16px;
-  background: var(--accent-color);
+  background: transparent;
   border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: var(--shadow-md);
-}
-
-.format-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
-}
-
-.editor-layout {
-  display: flex;
-  gap: 8px;
-}
-
-.tool-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
-.tool-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 16px;
-  width: 100%;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tool-btn:hover {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-  background: var(--bg-secondary);
-}
-
-.icon-btn {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border-radius: 50%;
-}
-
-/* Badges */
-.badge {
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.badge.error {
-  background: var(--error-bg);
-  color: var(--error-color);
-}
-.badge.success {
-  background: var(--accent-light);
-  color: var(--accent-text);
-}
-
-/* Icon Actions */
-.icon-action {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
-.icon-action:hover {
-  border-color: var(--accent-color);
+
+.toolbar-btn:hover {
+  background: var(--bg-secondary);
   color: var(--accent-color);
 }
 
-/* Bottom Actions */
-.bottom-actions {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  padding-top: 20px;
-  flex-shrink: 0;
+.toolbar-btn.danger:hover {
+  color: var(--error-color);
 }
 
-.action-btn {
+/* Checkbox */
+.checkbox-label {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 28px;
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 1px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
+  user-select: none;
 }
 
-.action-btn.danger {
-  background: var(--error-bg);
-  color: var(--error-color);
-  border-color: transparent;
-}
-.action-btn.danger:hover {
-  background: var(--error-color);
-  color: white;
-}
-
-.action-btn.primary {
-  background: var(--accent-light);
-  color: var(--accent-color);
-}
-.action-btn.primary:hover {
-  background: var(--accent-color);
-  color: white;
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-color);
+  cursor: pointer;
 }
 
 /* Error Toast */
@@ -597,7 +578,7 @@ const formatTime = (timestamp: number) => {
 .history-dropdown {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   margin-top: 8px;
   width: 300px;
   background: var(--bg-primary);
@@ -628,6 +609,7 @@ const formatTime = (timestamp: number) => {
   padding: 4px 8px;
   border-radius: var(--radius-sm);
 }
+
 .clear-btn:hover {
   background: var(--error-bg);
 }
@@ -650,9 +632,11 @@ const formatTime = (timestamp: number) => {
   border-bottom: 1px solid var(--border-color);
   transition: background 0.15s;
 }
+
 .history-item:last-child {
   border-bottom: none;
 }
+
 .history-item:hover {
   background: var(--bg-secondary);
 }
