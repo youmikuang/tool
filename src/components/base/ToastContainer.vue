@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import { useToast } from '@/composables/useToast';
-import BaseIcon from '@/components/base/BaseIcon.vue';
+import { useToast } from '@/composables/useToast'
+import BaseIcon from '@/components/base/BaseIcon.vue'
 
-const { toasts, removeToast } = useToast();
+const { toasts, removeToast } = useToast()
 </script>
 
 <template>
   <div class="toast-container">
     <TransitionGroup name="toast">
-      <div 
-        v-for="toast in toasts" 
-        :key="toast.id" 
+      <div
+        v-for="toast in toasts"
+        :key="toast.id"
         class="toast-item"
         :class="toast.type"
         @click="removeToast(toast.id)"
       >
         <BaseIcon v-if="toast.type === 'success'" name="check" :size="18" />
         <BaseIcon v-else-if="toast.type === 'error'" name="alertCircle" :size="18" />
+        <BaseIcon v-else-if="toast.type === 'warning'" name="alertCircle" :size="18" />
         <BaseIcon v-else name="info" :size="18" />
         <span class="toast-message">{{ toast.message }}</span>
       </div>
@@ -60,6 +61,10 @@ const { toasts, removeToast } = useToast();
 
 .toast-item.error {
   border-left: 4px solid var(--error-color);
+}
+
+.toast-item.warning {
+  border-left: 4px solid var(--warning-color);
 }
 
 .toast-item.info {

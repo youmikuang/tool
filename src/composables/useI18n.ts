@@ -73,6 +73,7 @@ const translations = {
     // JsonEditor New
     preserveEscape: 'Preserve Escape',
     clickToEdit: 'Click key-value to edit',
+    invalidJson: 'Invalid JSON',
   },
   zh: {
     // Header
@@ -144,6 +145,7 @@ const translations = {
     // JsonEditor New
     preserveEscape: '保留转义',
     clickToEdit: '可点击键值进行编辑',
+    invalidJson: '无效的 JSON',
   },
 } as const
 

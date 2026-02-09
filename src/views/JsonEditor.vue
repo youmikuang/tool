@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import CodeMirrorEditor from '@/components/base/CodeMirrorEditor.vue'
 import { formatJson, minifyJson, escapeJson, unescapeJson } from '@/utils/jsonUtils'
 import { useI18n } from '@/composables/useI18n'
@@ -16,7 +16,7 @@ const showHistoryDropdown = ref(false)
 const historyWrapperRef = ref<HTMLElement | null>(null)
 
 // Settings
-const preserveEscape = ref(true)
+const preserveEscape = ref(false)
 
 // Resizable divider state
 const leftPaneWidth = ref(30) // percentage - left 30%, right 70%
@@ -123,14 +123,16 @@ const saveToHistoryDebounced = (content: string) => {
 }
 
 // Auto-parse JSON on LEFT input change -> sync to RIGHT (formatted)
-// Also handles escaped JSON by trying to unescape first
+// Also handles escaped JSON by trying to unescape first (unless preserveEscape is checked)
 watch(inputJson, (newValue) => {
   if (isSyncing.value) return
 
   if (!newValue.trim()) {
     isSyncing.value = true
     outputJson.value = ''
-    isSyncing.value = false
+    nextTick(() => {
+      isSyncing.value = false
+    })
     error.value = null
     isValidJson.value = false
     return
@@ -143,13 +145,31 @@ watch(inputJson, (newValue) => {
   try {
     parsed = JSON.parse(jsonToParse)
   } catch (e) {
-    // If direct parse fails, try to unescape and parse
-    try {
-      const unescaped = unescapeJson(newValue)
-      parsed = JSON.parse(unescaped)
-      jsonToParse = unescaped
-    } catch (e2) {
-      // Still invalid - don't clear output, just update validation state
+    // If direct parse fails and preserveEscape is NOT checked, try to unescape and parse
+    if (!preserveEscape.value) {
+      try {
+        const unescaped = unescapeJson(newValue)
+        parsed = JSON.parse(unescaped)
+        jsonToParse = unescaped
+      } catch (e2: any) {
+        // Invalid - show error in output
+        isSyncing.value = true
+        outputJson.value = e2.message || 'Invalid JSON'
+        nextTick(() => {
+          isSyncing.value = false
+        })
+        error.value = null
+        isValidJson.value = false
+        return
+      }
+    } else {
+      // preserveEscape is checked, don't try to unescape
+      // Invalid - show error in output
+      isSyncing.value = true
+      outputJson.value = (e as any).message || 'Invalid JSON'
+      nextTick(() => {
+        isSyncing.value = false
+      })
       error.value = null
       isValidJson.value = false
       return
@@ -159,7 +179,9 @@ watch(inputJson, (newValue) => {
   const formatted = JSON.stringify(parsed, null, 2)
   isSyncing.value = true
   outputJson.value = formatted
-  isSyncing.value = false
+  nextTick(() => {
+    isSyncing.value = false
+  })
   error.value = null
   isValidJson.value = true
 
@@ -167,23 +189,23 @@ watch(inputJson, (newValue) => {
   saveToHistoryDebounced(formatted)
 })
 
-// Sync RIGHT output changes -> to LEFT input
+// Sync RIGHT output changes -> to LEFT input (only if valid JSON)
 watch(outputJson, (newValue) => {
   if (isSyncing.value) return
+  if (!newValue.trim()) return
 
-  // Sync output to input
-  isSyncing.value = true
-  inputJson.value = newValue
-  isSyncing.value = false
-
-  // If valid JSON, save to history (debounced)
-  if (newValue.trim()) {
-    try {
-      JSON.parse(newValue)
-      saveToHistoryDebounced(newValue)
-    } catch (e) {
-      // Invalid JSON, don't save
-    }
+  // Only sync if it's valid JSON
+  try {
+    JSON.parse(newValue)
+    // Valid JSON - sync to left
+    isSyncing.value = true
+    inputJson.value = newValue
+    nextTick(() => {
+      isSyncing.value = false
+    })
+    saveToHistoryDebounced(newValue)
+  } catch (e) {
+    // Invalid JSON - don't sync to left, just keep it in output
   }
 })
 
@@ -201,42 +223,83 @@ const processJson = (mode: 'minify' | 'escape' | 'unescape') => {
   error.value = null
 
   try {
+    let contentToProcess = inputJson.value
+
+    // If input is not valid JSON, try to unescape it first (for minify/format operations)
+    if (mode === 'minify') {
+      try {
+        JSON.parse(contentToProcess)
+      } catch (e) {
+        // If direct parse fails, try to unescape
+        try {
+          const unescaped = unescapeJson(contentToProcess)
+          JSON.parse(unescaped)
+          contentToProcess = unescaped
+        } catch (e2) {
+          // Cannot fix, proceed with original (will fail in minifyJson)
+        }
+      }
+    }
+
     let result = ''
     switch (mode) {
       case 'minify':
-        result = minifyJson(inputJson.value)
+        // Expects valid JSON string or unescaped valid JSON
+        result = minifyJson(contentToProcess)
         break
       case 'escape':
-        result = escapeJson(inputJson.value)
+        result = escapeJson(contentToProcess)
         break
       case 'unescape':
-        result = unescapeJson(inputJson.value)
+        result = unescapeJson(contentToProcess)
         break
     }
 
-    // Update both sides
+    // Verify if result is valid JSON
+    let isValidResult = false
+    try {
+      JSON.parse(result)
+      isValidResult = true
+    } catch (e) {
+      isValidResult = false
+    }
+
+    // Always update output
     isSyncing.value = true
     outputJson.value = result
-    inputJson.value = result
-    isSyncing.value = false
+
+    // Update input:
+    // - If MINIFY/UNESCAPE: only if valid JSON
+    // - If ESCAPE: always update (as it produces a string)
+    if (mode === 'escape' || isValidResult) {
+      inputJson.value = result
+    }
+
+    nextTick(() => {
+      isSyncing.value = false
+    })
+
+    // Show appropriate toast
+    const modeText = {
+      minify: t('minified'),
+      escape: t('escaped'),
+      unescape: t('unescaped'),
+    }
+
+    if (isValidResult) {
+      showToast(modeText[mode])
+    } else {
+      // For escape, "Invalid JSON" is expected (it's a string now)
+      if (mode === 'escape') {
+        showToast(modeText[mode])
+      } else {
+        showToast(`${modeText[mode]} (${t('invalidJson')})`, 'warning')
+      }
+    }
   } catch (e: any) {
     error.value = e.message
   } finally {
-    setTimeout(() => {
-      processing.value = false
-
-      switch (mode) {
-        case 'minify':
-          showToast(t('minified'))
-          break
-        case 'escape':
-          showToast(t('escaped'))
-          break
-        case 'unescape':
-          showToast(t('unescaped'))
-          break
-      }
-    }, 200)
+    processing.value = false
   }
 }
 
@@ -314,7 +377,7 @@ const formatTime = (timestamp: number) => {
       <div class="toolbar">
         <div class="toolbar-left">
           <button class="toolbar-btn" @click="processJson('minify')" :title="t('minify')">
-            <BaseIcon name="minify" :size="20" />
+            <img src="@/assets/img/compress.svg" alt="compress" width="23" height="23" />
           </button>
           <button class="toolbar-btn" @click="processJson('escape')" :title="t('escape')">
             <img src="@/assets/img/Serialize.svg" alt="serialize" width="20" height="20" />
