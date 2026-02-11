@@ -145,28 +145,16 @@ watch(inputJson, (newValue) => {
   try {
     parsed = JSON.parse(jsonToParse)
   } catch (e) {
-    // If direct parse fails and preserveEscape is NOT checked, try to unescape and parse
-    if (!preserveEscape.value) {
-      try {
-        const unescaped = unescapeJson(newValue)
-        parsed = JSON.parse(unescaped)
-        jsonToParse = unescaped
-      } catch (e2: any) {
-        // Invalid - show error in output
-        isSyncing.value = true
-        outputJson.value = e2.message || 'Invalid JSON'
-        nextTick(() => {
-          isSyncing.value = false
-        })
-        error.value = null
-        isValidJson.value = false
-        return
-      }
-    } else {
-      // preserveEscape is checked, don't try to unescape
+    // If direct parse fails, ALWAYS try to unescape and parse
+    try {
+      const unescaped = unescapeJson(newValue)
+      parsed = JSON.parse(unescaped)
+      jsonToParse = unescaped
+    } catch (e2: any) {
       // Invalid - show error in output
       isSyncing.value = true
-      outputJson.value = (e as any).message || 'Invalid JSON'
+      // Prefer showing the unescaped error if possible, or fall back to generic
+      outputJson.value = e2.message || (e as any).message || 'Invalid JSON'
       nextTick(() => {
         isSyncing.value = false
       })
