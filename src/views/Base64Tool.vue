@@ -88,7 +88,7 @@ const validateBase64 = () => {
   
   try {
     const hasDataPrefix = base64Str.startsWith('data:image')
-    const pureBase64 = hasDataPrefix ? base64Str.split(',')[1] : base64Str
+    const pureBase64 = hasDataPrefix ? base64Str.split(',')[1] || '' : base64Str
     
     const decoded = atob(pureBase64)
     const byteArray = new Uint8Array(decoded.length)

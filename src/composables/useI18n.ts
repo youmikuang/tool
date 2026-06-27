@@ -108,6 +108,7 @@ const translations = {
     pasteImage: 'Paste Image',
     imagePreview: 'Image Preview',
     base64String: 'Base64 String',
+    preview: 'Preview',
     dragDropImage: 'Drag & drop an image here, or click to upload',
   },
   zh: {
@@ -215,6 +216,7 @@ const translations = {
     pasteImage: '粘贴图片',
     imagePreview: '图片预览',
     base64String: 'Base64 字符串',
+    preview: '预览',
     dragDropImage: '拖拽图片到此处，或点击上传',
   },
 } as const
