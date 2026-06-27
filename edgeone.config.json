@@ -1,6 +1,6 @@
 {
   "build": {
-    "command": "npm install && npm run build",
+    "command": "pnpm approve-builds esbuild && pnpm install && pnpm run build",
     "output": "dist"
   },
   "edge_function": {
