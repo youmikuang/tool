@@ -1,6 +1,6 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 
-export type TabType = 'json' | 'jsonDiff' | 'sql'
+export type TabType = 'json' | 'jsonDiff' | 'sql' | 'time' | 'base64'
 
 export function useRouter() {
   const activeTab = ref<TabType>('json')
@@ -9,12 +9,16 @@ export function useRouter() {
     '/': 'json',
     '/diff': 'jsonDiff',
     '/sql': 'sql',
+    '/time': 'time',
+    '/base64': 'base64',
   }
 
   const reverseRouteMap: Record<string, string> = {
     json: '/',
     jsonDiff: '/diff',
     sql: '/sql',
+    time: '/time',
+    base64: '/base64',
   }
 
   const getTabFromPath = (): TabType => {

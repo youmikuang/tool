@@ -6,6 +6,8 @@ import { useRouter } from '@/composables/useRouter'
 import JsonEditor from '@/views/JsonEditor.vue'
 import JsonDiffEditor from '@/views/JsonDiffEditor.vue'
 import SqlEditor from '@/views/SqlEditor.vue'
+import TimeTool from '@/views/TimeTool.vue'
+import Base64Tool from '@/views/Base64Tool.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import ToastContainer from '@/components/base/ToastContainer.vue'
 
@@ -130,6 +132,22 @@ function handleThemeToggle(e: MouseEvent) {
             <BaseIcon name="sql" :size="16" />
             {{ t('sqlFormat') }}
           </button>
+          <button
+            class="nav-tab"
+            :class="{ active: activeTab === 'time' }"
+            @click="activeTab = 'time'"
+          >
+            <BaseIcon name="time" :size="16" />
+            {{ t('time') }}
+          </button>
+          <button
+            class="nav-tab"
+            :class="{ active: activeTab === 'base64' }"
+            @click="activeTab = 'base64'"
+          >
+            <BaseIcon name="base64" :size="16" />
+            {{ t('base64') }}
+          </button>
         </nav>
       </div>
 
@@ -163,6 +181,8 @@ function handleThemeToggle(e: MouseEvent) {
         <JsonEditor v-if="activeTab === 'json'" />
         <jsonDiffEditor v-else-if="activeTab === 'jsonDiff'" />
         <SqlEditor v-else-if="activeTab === 'sql'" />
+        <TimeTool v-else-if="activeTab === 'time'" />
+        <Base64Tool v-else-if="activeTab === 'base64'" />
       </KeepAlive>
     </main>
 
