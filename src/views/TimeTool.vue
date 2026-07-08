@@ -284,7 +284,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   padding: 80px 24px 48px;
-  overflow-y: auto;
+  overflow-y: disabled;
 }
 
 .tool-container {
@@ -294,7 +294,7 @@ onUnmounted(() => {
 
 .current-timestamp-card {
   padding: 32px;
-  margin-bottom: 55px;
+  margin-bottom: 35px;
   padding-bottom: 28px;
   border-bottom: 1px solid var(--border-color);
 }
@@ -399,7 +399,7 @@ onUnmounted(() => {
 }
 
 .convert-row {
-  margin-bottom: 50px;
+  margin-bottom: 35px;
   padding-bottom: 28px;
   border-bottom: 1px solid var(--border-color);
 }
