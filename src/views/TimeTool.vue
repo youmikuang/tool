@@ -151,35 +151,35 @@ onUnmounted(() => {
 <template>
   <div class="time-tool-page">
     <div class="tool-container">
-      <div class="current-timestamp-card">
-        <div class="card-label">{{ t('currentTimestamp') }}</div>
-        <div class="timestamp-display">
-          <span class="timestamp-value">{{ currentTimestamp }}</span>
-          <span class="timestamp-unit">{{ isMillisecond ? t('milliseconds') : t('seconds') }}</span>
-        </div>
-        <div class="current-time">{{ t('currentTime') }}: {{ currentTimeStr }}</div>
-        <div class="action-row">
-          <button class="action-btn" @click="toggleUnit">
-            <BaseIcon name="swap" :size="16" />
-            {{ t('toggleUnit') }}
-          </button>
-          <button class="action-btn" @click="copyCurrentTimestamp">
-            <BaseIcon name="copy" :size="16" />
-            {{ t('copy') }}
-          </button>
-          <button v-if="isRunning" class="action-btn danger" @click="stopTimer">
-            <BaseIcon name="clear" :size="16" />
-            {{ t('stop') }}
-          </button>
-          <button v-else class="action-btn success" @click="startTimer">
-            <BaseIcon name="play" :size="16" />
-            {{ t('start') }}
-          </button>
-        </div>
-      </div>
-
       <div class="convert-section">
         <div class="convert-content">
+          <div class="current-timestamp-card">
+            <div class="card-label">{{ t('currentTimestamp') }}</div>
+            <div class="timestamp-display">
+              <span class="timestamp-value">{{ currentTimestamp }}</span>
+              <span class="timestamp-unit">{{ isMillisecond ? t('milliseconds') : t('seconds') }}</span>
+            </div>
+            <div class="current-time">{{ t('currentTime') }}: {{ currentTimeStr }}</div>
+            <div class="action-row">
+              <button class="action-btn" @click="toggleUnit">
+                <BaseIcon name="swap" :size="16" />
+                {{ t('toggleUnit') }}
+              </button>
+              <button class="action-btn" @click="copyCurrentTimestamp">
+                <BaseIcon name="copy" :size="16" />
+                {{ t('copy') }}
+              </button>
+              <button v-if="isRunning" class="action-btn danger" @click="stopTimer">
+                <BaseIcon name="clear" :size="16" />
+                {{ t('stop') }}
+              </button>
+              <button v-else class="action-btn success" @click="startTimer">
+                <BaseIcon name="play" :size="16" />
+                {{ t('start') }}
+              </button>
+            </div>
+          </div>
+
           <div class="convert-row">
             <div class="convert-row-header">
               <BaseIcon name="clock" :size="18" />
@@ -293,12 +293,10 @@ onUnmounted(() => {
 }
 
 .current-timestamp-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
   padding: 32px;
-  margin-bottom: 28px;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 55px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .card-label {
@@ -397,10 +395,11 @@ onUnmounted(() => {
 
 .convert-content {
   padding: 28px;
+  padding-bottom: 50px;
 }
 
 .convert-row {
-  margin-bottom: 28px;
+  margin-bottom: 50px;
   padding-bottom: 28px;
   border-bottom: 1px solid var(--border-color);
 }
