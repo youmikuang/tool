@@ -15,8 +15,6 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const { t } = useI18n()
-
 // Canvas refs
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const image = ref<HTMLImageElement | null>(null)
@@ -346,12 +344,14 @@ function onWheel(e: WheelEvent) {
 function onTouchStart(e: TouchEvent) {
   e.preventDefault()
   const touch = e.touches[0]
+  if (!touch) return
   onMouseDown({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
 }
 
 function onTouchMove(e: TouchEvent) {
   e.preventDefault()
   const touch = e.touches[0]
+  if (!touch) return
   onMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
 }
 
@@ -412,10 +412,6 @@ async function handleConfirm() {
   const img = image.value
   const imgW = img.naturalWidth
   const imgH = img.naturalHeight
-
-  // Scale factor: display pixels → original pixels
-  const scaleX = imgW / displayWidth.value
-  const scaleY = imgH / displayHeight.value
 
   const cb = cropBox.value
 
