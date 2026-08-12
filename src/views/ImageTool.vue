@@ -146,8 +146,8 @@ function handleSlotClick(index: number) {
       cropModalKey.value++
       isCropping.value = true
 
-      slots.value[index].originalFile = file
-      slots.value[index].originalDataUrl = dataUrl
+      slots.value[index]!.originalFile = file
+      slots.value[index]!.originalDataUrl = dataUrl
     } catch {
       alert(t('invalidImageType'))
     }
@@ -159,11 +159,13 @@ function handleSlotClick(index: number) {
 function handleCropConfirm({ blob, config }: { blob: Blob; config: CropConfig }) {
   const index = croppingSlotIndex.value
   if (index < 0 || index >= slots.value.length) return
+  const slot = slots.value[index]
+  if (!slot) return
 
   blobToDataUrl(blob).then((dataUrl) => {
-    slots.value[index].croppedBlob = blob
-    slots.value[index].croppedDataUrl = dataUrl
-    slots.value[index].cropConfig = config
+    slot.croppedBlob = blob
+    slot.croppedDataUrl = dataUrl
+    slot.cropConfig = config
   })
 
   isCropping.value = false
@@ -175,9 +177,12 @@ function handleCropCancel() {
   isCropping.value = false
   croppingSlotIndex.value = -1
 
-  if (index >= 0 && index < slots.value.length && !slots.value[index]?.croppedBlob) {
-    slots.value[index].originalFile = null
-    slots.value[index].originalDataUrl = null
+  if (index >= 0 && index < slots.value.length) {
+    const slot = slots.value[index]
+    if (slot && !slot.croppedBlob) {
+      slot.originalFile = null
+      slot.originalDataUrl = null
+    }
   }
 }
 
