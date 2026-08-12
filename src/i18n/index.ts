@@ -1,15 +1,13 @@
-import { ref, computed } from 'vue'
+import { createI18n } from 'vue-i18n'
 
-export type Locale = 'en' | 'zh'
-
-const translations = {
+const messages = {
   en: {
     // Header
     json: 'Json',
     jsonDiff: 'Json Diff',
     sqlFormat: 'SQL Format',
     time: 'Time',
-    base64: 'Base64',
+    base64: 'Base 64',
     chromeExtension: 'Chrome Extension',
     switchToLight: 'Switch to Light',
     switchToDark: 'Switch to Dark',
@@ -110,6 +108,55 @@ const translations = {
     base64String: 'Base64 String',
     preview: 'Preview',
     dragDropImage: 'Drag & drop an image here, or click to upload',
+
+    // ImageTool
+    image: 'Image',
+    card: 'Card',
+    selectCardType: 'Card Type(No File Upload)',
+    cardType_id_card: 'ID Card',
+    cardType_degree_cert: 'Degree Certificate',
+    cardType_diploma: 'Diploma',
+    cardType_bank_card: 'Bank Card',
+    cardType_social_card: 'Social Security Card',
+    cardType_driver_license: 'Driver License',
+    cardType_passport: 'Passport',
+    cardType_custom: 'Custom',
+    uploadFront: 'Click to upload front side',
+    uploadBack: 'Click to upload back side',
+    frontSide: 'Front (Photo Side)',
+    backSide: 'Back (Emblem Side)',
+    reCrop: 'Click to re-crop',
+    selectCardTypeFirst: 'Please select card type first',
+    confirmCrop: 'Confirm Crop',
+    cancelCrop: 'Cancel',
+    resetCrop: 'Reset',
+    rotateCrop: 'Rotate',
+    cropTooSmall: 'Crop area too small, may affect print quality',
+    watermarkText: 'Watermark Text',
+    watermarkPlaceholder: 'e.g. For XX Use Only',
+    opacity: 'Opacity',
+    fontSize: 'Font Size',
+    position: 'Position',
+    color: 'Color',
+    angle: 'Angle',
+    density: 'Density',
+    a4Paper: 'A4 PAPER (210X297MM)',
+    watermarkConfig: 'Watermark Config',
+    position_tile: 'Tile',
+    position_center: 'Center',
+    position_topLeft: 'Top Left',
+    position_topRight: 'Top Right',
+    position_bottomLeft: 'Bottom Left',
+    position_bottomRight: 'Bottom Right',
+    exportImage: 'Export',
+    reset: 'Reset',
+    exporting: 'Exporting...',
+    switchTypeWarning: 'Switching type will clear uploaded images. Continue?',
+    noWatermarkWarning: 'No watermark text entered, continue?',
+    partialExport: 'Only exported uploaded sides',
+    fileTooLarge: 'Image too large, please compress before upload',
+    invalidImageType: 'Please upload JPG or PNG images',
+    browserNotSupported: 'Please use Chrome or Edge browser',
   },
   zh: {
     // Header
@@ -218,38 +265,67 @@ const translations = {
     base64String: 'Base64 字符串',
     preview: '预览',
     dragDropImage: '拖拽图片到此处，或点击上传',
-  },
-} as const
 
-type TranslationKey = keyof typeof translations.en
+    // ImageTool
+    image: '图片',
+    card: '证件',
+    selectCardType: '证件类型(不上传任何数据)',
+    cardType_id_card: '身份证',
+    cardType_degree_cert: '学历证',
+    cardType_diploma: '学位证',
+    cardType_bank_card: '银行卡',
+    cardType_social_card: '社保卡',
+    cardType_driver_license: '驾驶证',
+    cardType_passport: '护照',
+    cardType_custom: '自定义',
+    uploadFront: '点击上传正面',
+    uploadBack: '点击上传反面',
+    frontSide: '正面（人像面）',
+    backSide: '反面（国徽面）',
+    reCrop: '点击重新裁剪',
+    selectCardTypeFirst: '请先选择证件类型',
+    confirmCrop: '确认裁剪',
+    cancelCrop: '取消',
+    resetCrop: '重置',
+    rotateCrop: '旋转',
+    cropTooSmall: '裁剪区域过小，可能影响打印效果',
+    watermarkText: '水印文字',
+    watermarkPlaceholder: '例如：仅供XX办理使用',
+    opacity: '透明度',
+    fontSize: '字号',
+    position: '位置',
+    color: '颜色',
+    angle: '倾斜度',
+    density: '密度',
+    a4Paper: 'A4 纸 (210X297MM)',
+    watermarkConfig: '水印配置',
+    position_tile: '平铺',
+    position_center: '居中',
+    position_topLeft: '左上',
+    position_topRight: '右上',
+    position_bottomLeft: '左下',
+    position_bottomRight: '右下',
+    exportImage: '导出',
+    reset: '重置',
+    exporting: '导出中...',
+    switchTypeWarning: '切换类型将清空已上传的图片，是否继续？',
+    noWatermarkWarning: '未输入水印文字，是否继续？',
+    partialExport: '仅导出了已上传面',
+    fileTooLarge: '图片过大，请压缩后上传',
+    invalidImageType: '请上传 JPG 或 PNG 格式的图片',
+    browserNotSupported: '请使用 Chrome 或 Edge 浏览器',
+  },
+}
 
 const STORAGE_KEY = 'json-editor-locale'
-// Get initial locale from storage or default to 'en'
-const savedLocale = localStorage.getItem(STORAGE_KEY) as Locale | null
-const locale = ref<Locale>(savedLocale && ['en', 'zh'].includes(savedLocale) ? savedLocale : 'en')
+const savedLocale = localStorage.getItem(STORAGE_KEY) as 'en' | 'zh' | null
+const initialLocale = savedLocale && ['en', 'zh'].includes(savedLocale) ? savedLocale : 'en'
 
-// Watch for changes and save to storage
-import { watch } from 'vue'
-watch(locale, (newValue) => {
-  localStorage.setItem(STORAGE_KEY, newValue)
+const i18n = createI18n({
+  legacy: false,
+  locale: initialLocale,
+  fallbackLocale: 'en',
+  messages,
 })
 
-export function useI18n() {
-  const t = (key: TranslationKey): string => {
-    return translations[locale.value][key] || key
-  }
-
-  const toggleLocale = () => {
-    locale.value = locale.value === 'en' ? 'zh' : 'en'
-  }
-
-  const currentLocale = computed(() => locale.value)
-  const localeLabel = computed(() => (locale.value === 'en' ? '中' : 'EN'))
-
-  return {
-    t,
-    locale: currentLocale,
-    localeLabel,
-    toggleLocale,
-  }
-}
+export default i18n

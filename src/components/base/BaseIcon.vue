@@ -1,33 +1,36 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { icons, type IconName } from '@/utils/icons';
+import { computed } from 'vue'
+import { icons, type IconName } from '@/utils/icons'
 
 defineOptions({
-  inheritAttrs: true
-});
+  inheritAttrs: true,
+})
 
-const props = withDefaults(defineProps<{
-  name: IconName;
-  size?: number | string;
-  className?: string;
-}>(), {
-  size: 16
-});
+const props = withDefaults(
+  defineProps<{
+    name: IconName
+    size?: number | string
+    className?: string
+  }>(),
+  {
+    size: 16,
+  },
+)
 
 const iconContent = computed(() => {
-  const content = icons[props.name];
+  const content = icons[props.name]
   if (!content) {
-    console.warn(`Icon "${props.name}" not found`);
-    return '';
+    console.warn(`Icon "${props.name}" not found`)
+    return ''
   }
-  return content;
-});
+  return content
+})
 
 const sizeStyle = computed(() => {
-  const s = props.size;
-  const val = typeof s === 'number' ? `${s}px` : s;
-  return { width: val, height: val };
-});
+  const s = props.size
+  const val = typeof s === 'number' ? `${s}px` : s
+  return { width: val, height: val }
+})
 </script>
 
 <template>
@@ -43,7 +46,7 @@ const sizeStyle = computed(() => {
     stroke-linejoin="round"
     :class="className"
     :style="sizeStyle"
-    style="vertical-align: middle; display: inline-block;"
+    style="vertical-align: middle; display: inline-block"
     v-html="iconContent"
   ></svg>
 </template>

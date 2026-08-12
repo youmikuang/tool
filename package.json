@@ -20,7 +20,9 @@
     "codemirror": "^6.0.2",
     "sql-formatter": "^15.7.0",
     "vue": "^3.5.27",
-    "vue-codemirror": "^6.1.1"
+    "vue-codemirror": "^6.1.1",
+    "vue-i18n": "^10.0.8",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",

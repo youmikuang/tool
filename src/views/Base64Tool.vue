@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useI18n } from '@/composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 
@@ -71,7 +71,9 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const imageSrc = computed(() => {
   if (!imageBase64.value || !isImageValid.value) return ''
-  return imageBase64.value.startsWith('data:image') ? imageBase64.value : `data:image/png;base64,${imageBase64.value}`
+  return imageBase64.value.startsWith('data:image')
+    ? imageBase64.value
+    : `data:image/png;base64,${imageBase64.value}`
 })
 
 const base64Length = computed(() => imageBase64.value.length)
@@ -85,11 +87,11 @@ const validateBase64 = () => {
   }
 
   const base64Str = imageBase64.value.trim()
-  
+
   try {
     const hasDataPrefix = base64Str.startsWith('data:image')
     const pureBase64 = hasDataPrefix ? base64Str.split(',')[1] || '' : base64Str
-    
+
     const decoded = atob(pureBase64)
     const byteArray = new Uint8Array(decoded.length)
     for (let i = 0; i < decoded.length; i++) {
@@ -98,13 +100,15 @@ const validateBase64 = () => {
 
     const blob = new Blob([byteArray])
     imageSize.value = blob.size
-    
+
     if (hasDataPrefix) {
       const match = base64Str.match(/^data:image\/([a-zA-Z0-9+.-]+);/)
       imageType.value = match ? `image/${match[1]}` : 'image/unknown'
     } else {
       const header = byteArray.slice(0, 4)
-      const headerHex = Array.from(header).map(b => b.toString(16).padStart(2, '0')).join('')
+      const headerHex = Array.from(header)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
       if (headerHex.startsWith('89504e47')) {
         imageType.value = 'image/png'
       } else if (headerHex.startsWith('ffd8ffe')) {
@@ -210,7 +214,6 @@ const pasteFromClipboard = async () => {
 <template>
   <div class="base64-tool-page">
     <div class="tool-container">
-
       <div class="tool-section">
         <div class="tabs">
           <button
@@ -262,7 +265,9 @@ const pasteFromClipboard = async () => {
               <textarea
                 v-model="textInput"
                 class="text-area"
-                :placeholder="textMode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...'"
+                :placeholder="
+                  textMode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 to decode...'
+                "
               ></textarea>
             </div>
 
@@ -321,7 +326,9 @@ const pasteFromClipboard = async () => {
           <div class="image-panes">
             <div class="image-pane">
               <div class="pane-header">
-                <span class="pane-title">{{ t('base64String') }}{{ base64Length ? `：${base64Length} chars` : '' }}</span>
+                <span class="pane-title"
+                  >{{ t('base64String') }}{{ base64Length ? `：${base64Length} chars` : '' }}</span
+                >
                 <div class="pane-actions">
                   <button
                     class="pane-action-btn"
@@ -351,12 +358,23 @@ const pasteFromClipboard = async () => {
 
             <div class="image-pane">
               <div class="pane-header">
-                <span class="pane-title">{{ t('imagePreview') }}{{ imageType ? `：${imageType}` : '' }} {{ imageSize ? formatSize(imageSize) : '' }}</span>
+                <span class="pane-title"
+                  >{{ t('imagePreview') }}{{ imageType ? `：${imageType}` : '' }}
+                  {{ imageSize ? formatSize(imageSize) : '' }}</span
+                >
                 <div class="pane-actions">
-                  <button class="pane-action-btn" @click="triggerFileInput" :title="t('uploadImage')">
+                  <button
+                    class="pane-action-btn"
+                    @click="triggerFileInput"
+                    :title="t('uploadImage')"
+                  >
                     <BaseIcon name="download" :size="14" />
                   </button>
-                  <button class="pane-action-btn" @click="pasteFromClipboard" :title="t('pasteImage')">
+                  <button
+                    class="pane-action-btn"
+                    @click="pasteFromClipboard"
+                    :title="t('pasteImage')"
+                  >
                     <BaseIcon name="copy" :size="14" />
                   </button>
                 </div>
@@ -377,7 +395,13 @@ const pasteFromClipboard = async () => {
                 <template v-else>
                   <div class="preview-placeholder">
                     <BaseIcon name="image" :size="48" class="drop-icon" />
-                    <p class="drop-text">{{ imageBase64 && !isImageValid ? 'Invalid Base64 image' : 'Image preview will appear here...' }}</p>
+                    <p class="drop-text">
+                      {{
+                        imageBase64 && !isImageValid
+                          ? 'Invalid Base64 image'
+                          : 'Image preview will appear here...'
+                      }}
+                    </p>
                   </div>
                 </template>
               </div>

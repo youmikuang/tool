@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import CodeMirrorEditor from '@/components/base/CodeMirrorEditor.vue'
 import { formatJson, minifyJson, escapeJson, unescapeJson } from '@/utils/jsonUtils'
-import { useI18n } from '@/composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { useToast } from '@/composables/useToast'
 import { useHistory } from '@/composables/useHistory'

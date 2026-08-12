@@ -1,36 +1,36 @@
-import { ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue'
 
 export function useTheme() {
-  const isDark = ref(false);
+  const isDark = ref(false)
 
   const applyTheme = () => {
-    const root = document.documentElement;
+    const root = document.documentElement
     if (isDark.value) {
-      root.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
+      root.setAttribute('data-theme', 'dark')
+      localStorage.setItem('theme', 'dark')
     } else {
-      root.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'light');
+      root.removeAttribute('data-theme')
+      localStorage.setItem('theme', 'light')
     }
-  };
+  }
 
   const toggleTheme = () => {
-    isDark.value = !isDark.value;
-    applyTheme();
-  };
+    isDark.value = !isDark.value
+    applyTheme()
+  }
 
   onMounted(() => {
-    const savedTheme = localStorage.getItem('theme');
+    const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
-      isDark.value = savedTheme === 'dark';
+      isDark.value = savedTheme === 'dark'
     } else {
-      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
     }
-    applyTheme();
-  });
+    applyTheme()
+  })
 
   return {
     isDark,
-    toggleTheme
-  };
+    toggleTheme,
+  }
 }

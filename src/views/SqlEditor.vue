@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CodeMirrorEditor from '@/components/base/CodeMirrorEditor.vue'
-import { useI18n } from '@/composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import { format } from 'sql-formatter'
 import { sql } from '@codemirror/lang-sql'
 import BaseIcon from '@/components/base/BaseIcon.vue'

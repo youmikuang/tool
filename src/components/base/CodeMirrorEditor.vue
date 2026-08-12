@@ -1,39 +1,50 @@
 <script setup lang="ts">
-import { computed, toRefs } from 'vue';
-import { Codemirror } from 'vue-codemirror';
-import { json } from '@codemirror/lang-json';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { EditorView, highlightActiveLine, highlightActiveLineGutter, lineNumbers } from '@codemirror/view';
-import { useTheme } from '@/composables/useTheme';
+import { computed, toRefs } from 'vue'
+import { Codemirror } from 'vue-codemirror'
+import { json } from '@codemirror/lang-json'
+import { oneDark } from '@codemirror/theme-one-dark'
+import {
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  lineNumbers,
+} from '@codemirror/view'
+import { useTheme } from '@/composables/useTheme'
 
 const props = defineProps<{
-  modelValue: string;
-  readonly?: boolean;
-  placeholder?: string;
-}>();
+  modelValue: string
+  readonly?: boolean
+  placeholder?: string
+}>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void;
-  (e: 'change', value: string): void;
-}>();
+  (e: 'update:modelValue', value: string): void
+  (e: 'change', value: string): void
+}>()
 
-const { isDark } = useTheme();
+const { isDark } = useTheme()
 
 const extensions = computed(() => {
-  const exts = [json(), EditorView.lineWrapping, lineNumbers(), highlightActiveLine(), highlightActiveLineGutter()];
+  const exts = [
+    json(),
+    EditorView.lineWrapping,
+    lineNumbers(),
+    highlightActiveLine(),
+    highlightActiveLineGutter(),
+  ]
   if (isDark.value) {
-    exts.push(oneDark);
+    exts.push(oneDark)
   }
   if (props.readonly) {
-    exts.push(EditorView.editable.of(false));
+    exts.push(EditorView.editable.of(false))
   }
-  return exts;
-});
+  return exts
+})
 
 const handleChange = (value: string) => {
-  emit('update:modelValue', value);
-  emit('change', value);
-};
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 </script>
 
 <template>

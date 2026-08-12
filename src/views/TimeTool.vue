@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from '@/composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 
@@ -157,7 +157,9 @@ onUnmounted(() => {
             <div class="card-label">{{ t('currentTimestamp') }}</div>
             <div class="timestamp-display">
               <span class="timestamp-value">{{ currentTimestamp }}</span>
-              <span class="timestamp-unit">{{ isMillisecond ? t('milliseconds') : t('seconds') }}</span>
+              <span class="timestamp-unit">{{
+                isMillisecond ? t('milliseconds') : t('seconds')
+              }}</span>
             </div>
             <div class="current-time">{{ t('currentTime') }}: {{ currentTimeStr }}</div>
             <div class="action-row">

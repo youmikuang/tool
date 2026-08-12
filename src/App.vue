@@ -1,19 +1,31 @@
 <script setup lang="ts">
-import { nextTick } from 'vue'
+import { computed, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useTheme } from '@/composables/useTheme'
-import { useI18n } from '@/composables/useI18n'
-import { useRouter } from '@/composables/useRouter'
-import JsonEditor from '@/views/JsonEditor.vue'
-import JsonDiffEditor from '@/views/JsonDiffEditor.vue'
-import SqlEditor from '@/views/SqlEditor.vue'
-import TimeTool from '@/views/TimeTool.vue'
-import Base64Tool from '@/views/Base64Tool.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import ToastContainer from '@/components/base/ToastContainer.vue'
 
 const { isDark, toggleTheme } = useTheme()
-const { t, localeLabel, toggleLocale } = useI18n()
-const { activeTab } = useRouter()
+const { t, locale } = useI18n()
+const router = useRouter()
+const route = useRoute()
+
+const STORAGE_KEY = 'json-editor-locale'
+
+const localeLabel = computed(() => (locale.value === 'en' ? '中' : 'EN'))
+
+function toggleLocale() {
+  const next = locale.value === 'en' ? 'zh' : 'en'
+  locale.value = next
+  localStorage.setItem(STORAGE_KEY, next)
+}
+
+// Compute active tab from current route name
+const activeTab = computed(() => {
+  const name = route.name
+  return (typeof name === 'string' ? name : 'json') as string
+})
 
 // Theme toggle with View Transitions API (BewlyCat style)
 function handleThemeToggle(e: MouseEvent) {
@@ -102,52 +114,36 @@ function handleThemeToggle(e: MouseEvent) {
   <div class="container">
     <header class="header">
       <div class="header-left">
-        <div class="brand" @click="activeTab = 'json'" style="cursor: pointer">
+        <div class="brand" @click="router.push('/')" style="cursor: pointer">
           <BaseIcon name="logo" :size="24" />
           Tools
         </div>
 
         <nav class="nav-tabs">
-          <button
-            class="nav-tab"
-            :class="{ active: activeTab === 'json' }"
-            @click="activeTab = 'json'"
-          >
+          <router-link to="/" class="nav-tab" :class="{ active: activeTab === 'json' }">
             <BaseIcon name="json" :size="16" />
             {{ t('json') }}
-          </button>
-          <button
-            class="nav-tab"
-            :class="{ active: activeTab === 'jsonDiff' }"
-            @click="activeTab = 'jsonDiff'"
-          >
+          </router-link>
+          <router-link to="/diff" class="nav-tab" :class="{ active: activeTab === 'jsonDiff' }">
             <BaseIcon name="diff" :size="16" />
             {{ t('jsonDiff') }}
-          </button>
-          <button
-            class="nav-tab"
-            :class="{ active: activeTab === 'sql' }"
-            @click="activeTab = 'sql'"
-          >
+          </router-link>
+          <router-link to="/sql" class="nav-tab" :class="{ active: activeTab === 'sql' }">
             <BaseIcon name="sql" :size="16" />
             {{ t('sqlFormat') }}
-          </button>
-          <button
-            class="nav-tab"
-            :class="{ active: activeTab === 'time' }"
-            @click="activeTab = 'time'"
-          >
+          </router-link>
+          <router-link to="/time" class="nav-tab" :class="{ active: activeTab === 'time' }">
             <BaseIcon name="time" :size="16" />
             {{ t('time') }}
-          </button>
-          <button
-            class="nav-tab"
-            :class="{ active: activeTab === 'base64' }"
-            @click="activeTab = 'base64'"
-          >
+          </router-link>
+          <router-link to="/base64" class="nav-tab" :class="{ active: activeTab === 'base64' }">
             <BaseIcon name="base64" :size="16" />
             {{ t('base64') }}
-          </button>
+          </router-link>
+          <router-link to="/card" class="nav-tab" :class="{ active: activeTab === 'card' }">
+            <BaseIcon name="image" :size="16" />
+            {{ t('card') }}
+          </router-link>
         </nav>
       </div>
 
@@ -177,13 +173,11 @@ function handleThemeToggle(e: MouseEvent) {
     </header>
 
     <main class="main">
-      <KeepAlive>
-        <JsonEditor v-if="activeTab === 'json'" />
-        <jsonDiffEditor v-else-if="activeTab === 'jsonDiff'" />
-        <SqlEditor v-else-if="activeTab === 'sql'" />
-        <TimeTool v-else-if="activeTab === 'time'" />
-        <Base64Tool v-else-if="activeTab === 'base64'" />
-      </KeepAlive>
+      <router-view v-slot="{ Component }">
+        <KeepAlive>
+          <component :is="Component" />
+        </KeepAlive>
+      </router-view>
     </main>
 
     <ToastContainer />
@@ -381,8 +375,11 @@ function handleThemeToggle(e: MouseEvent) {
 
 .footer-links a {
   color: var(--text-muted);
-  text-decoration: none;
   transition: color 0.2s;
+}
+
+a {
+  text-decoration: none;
 }
 
 .footer-links a:hover {
