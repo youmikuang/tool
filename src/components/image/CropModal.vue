@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
 import type { CropConfig } from '@/utils/imageUtils'
 
 defineOptions({ inheritAttrs: true })
@@ -401,37 +400,37 @@ function handleReset() {
   nextTick(() => drawCanvas())
 }
 
-// Confirm crop — use full-resolution image but reliable mapping
+// Confirm crop — output at the ORIGINAL image's full resolution.
 //
-// Method: Recreate the EXACT same transform as the preview canvas,
-// but on a canvas sized to the original image. Then crop at the
-// corresponding position, scaled up.
+// Strategy (verified to match the preview exactly): rebuild the SAME
+// transform as drawCanvas() on a temp canvas sized to the native image,
+// then map the crop box from the preview canvas to that full-res canvas
+// using the CURRENT (possibly wheel-zoomed) display size. The browser
+// performs the forward transform, so the mapping is exact and the output
+// keeps every native pixel.
 async function handleConfirm() {
-  if (!image.value) return
-
   const img = image.value
+  if (!img) return
+
   const imgW = img.naturalWidth
   const imgH = img.naturalHeight
-
   const cb = cropBox.value
-
-  // Step 1: Build a temp canvas at FULL resolution with the SAME transform
   const isVertical = rotation.value === 90 || rotation.value === 270
+
+  // Step 1: temp canvas at FULL resolution with the SAME transform
   const tempCanvas = document.createElement('canvas')
   tempCanvas.width = isVertical ? imgH : imgW
   tempCanvas.height = isVertical ? imgW : imgH
   const tctx = tempCanvas.getContext('2d')
   if (!tctx) return
 
-  // Apply the exact same transform as drawCanvas()
   tctx.translate(tempCanvas.width / 2, tempCanvas.height / 2)
   tctx.rotate((rotation.value * Math.PI) / 180)
   tctx.drawImage(img, -imgW / 2, -imgH / 2, imgW, imgH)
 
-  // Step 2: Map cropBox from display canvas to this full-res canvas
-  // The display canvas has size (cw, ch) = effectiveWidth() × effectiveHeight()
-  // The temp canvas has size (isVertical ? imgH : imgW) × (isVertical ? imgW : imgH)
-  // Ratio: tempCanvas / displayCanvas
+  // Step 2: map cropBox from the preview canvas to this full-res canvas.
+  // effectiveWidth()/effectiveHeight() reflect the LIVE display size, so
+  // any wheel zoom is correctly accounted for.
   const cw = effectiveWidth()
   const ch = effectiveHeight()
   const ratioW = tempCanvas.width / cw
@@ -442,12 +441,15 @@ async function handleConfirm() {
   const srcW = Math.round(cb.width * ratioW)
   const srcH = Math.round(cb.height * ratioH)
 
-  // Step 3: Create output canvas at the crop size
+  // Step 3: output canvas sized to the cropped region (native resolution).
   const outCanvas = document.createElement('canvas')
-  outCanvas.width = srcW
-  outCanvas.height = srcH
+  outCanvas.width = Math.max(1, srcW)
+  outCanvas.height = Math.max(1, srcH)
   const outCtx = outCanvas.getContext('2d')
   if (!outCtx) return
+
+  outCtx.imageSmoothingEnabled = true
+  outCtx.imageSmoothingQuality = 'high'
 
   outCtx.drawImage(tempCanvas, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH)
 
@@ -455,7 +457,14 @@ async function handleConfirm() {
     if (!blob) return
     emit('confirm', {
       blob,
-      config: { x: 0, y: 0, width: srcW, height: srcH, rotation: 0, scale: 1 },
+      config: {
+        x: 0,
+        y: 0,
+        width: outCanvas.width,
+        height: outCanvas.height,
+        rotation: 0,
+        scale: 1,
+      },
     })
   }, 'image/png')
 }

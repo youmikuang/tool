@@ -85,14 +85,17 @@ function handleThemeToggle(e: MouseEvent) {
     `
     document.head.appendChild(zIndexStyle)
 
-    const clipPath = [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`]
+    const clipPath = [
+      `circle(0px at ${(x / innerWidth) * 100}% ${(y / innerHeight) * 100}%)`,
+      `circle(${endRadius}px at ${(x / innerWidth) * 100}% ${(y / innerHeight) * 100}%)`,
+    ]
 
     const animation = document.documentElement.animate(
       {
         clipPath: isDarkNow ? clipPath : [...clipPath].reverse(),
       },
       {
-        duration: 300,
+        duration: 270,
         easing: 'ease-in-out',
         pseudoElement: isDarkNow ? '::view-transition-new(root)' : '::view-transition-old(root)',
       },
