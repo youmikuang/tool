@@ -162,14 +162,14 @@ export const CARD_TYPES: CardType[] = [
 export function createDefaultWatermarkConfig(): WatermarkConfig {
   return {
     text: '',
-    opacity: 0.5,
-    fontSize: 20,
+    opacity: 0.3,
+    fontSize: 32,
     color: '#000000',
     position: 'tile',
     tileGapX: 200,
     tileGapY: 200,
     angle: -45,
-    density: 0.7,
+    density: 0.1,
   }
 }
 
@@ -491,14 +491,23 @@ export async function mergeDoubleSided(frontBlob: Blob, backBlob: Blob): Promise
 // ============================================================
 // Core: Compose onto A4 Canvas
 // ============================================================
-// A4 at 96 DPI: 794 × 1123 px (portrait)
+// Standard A4 sheet at 300 DPI: 2480 × 3508 px (portrait).
+// Source images are placed on the fixed A4 canvas.
+// - High-res sources (>= target area) are only downscaled → always sharp.
+// - Low-res sources are upscaled to FILL the target area so they don't look
+//   tiny, but capped at MAX_UPSCALE to avoid extreme interpolation blur.
 
-export const A4_WIDTH = 794
-export const A4_HEIGHT = 1123
+export const A4_WIDTH = 2480
+export const A4_HEIGHT = 3508
 
-// Compose one or more image blobs onto an A4 canvas (white background).
-// Images are centered and scaled to fit within A4 bounds (preserving aspect).
-// For double-sided, front is placed in upper half, back in lower half.
+// For low-resolution sources, the image is allowed to be upscaled to fill the
+// A4 target area — but capped at this multiple to avoid extreme interpolation
+// blur when the source is tiny.
+const MAX_UPSCALE = 2
+
+// Compose one or more image blobs onto a fixed A4 canvas (white background).
+// For double-sided, front is placed in the upper half, back in the lower half.
+// Images are scaled down to fit when needed, but never scaled up.
 export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = A4_WIDTH
@@ -508,6 +517,10 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
   if (!ctx) {
     throw new Error('Canvas 2D context not available')
   }
+
+  // High-quality downscaling (only used when source > target).
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
 
   // White background (A4 paper)
   ctx.fillStyle = '#ffffff'
@@ -526,35 +539,45 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
 
   if (isDoubleSided && loadedImages.length === 2) {
     // Double-sided: front in upper half, back in lower half
-    // ID card aspect ratio 85.6/53.98 ≈ 1.586
     const halfH = A4_HEIGHT / 2
-    const cardAspect = 1.586
-    const cardTargetW = A4_WIDTH * 0.7
-    const cardTargetH = cardTargetW / cardAspect
+    // Larger target area so the cards appear bigger on the A4 sheet.
+    const cardTargetW = A4_WIDTH
+    const cardTargetH = halfH
 
-    // Front (top half) — vertically centered in upper half
+    // Helper: scale that FILLS the target area (may be > 1 for low-res sources),
+    // but capped at MAX_UPSCALE so a tiny source is not stretched absurdly.
+    // High-res sources stay at <=1 (downscaled only → always sharp).
+    const fitScale = (img: HTMLImageElement) =>
+      Math.min(
+        cardTargetW / img.naturalWidth,
+        cardTargetH / img.naturalHeight,
+        (img.naturalWidth < cardTargetW || img.naturalHeight < cardTargetH) ? MAX_UPSCALE : 1,
+      )
+
+    // Front (top half) — vertically centered in upper half.
     const front = loadedImages[0]!
-    const frontScale = Math.min(cardTargetW / front.naturalWidth, cardTargetH / front.naturalHeight)
+    const frontScale = fitScale(front)
     const fw = front.naturalWidth * frontScale
     const fh = front.naturalHeight * frontScale
     ctx.drawImage(front, (A4_WIDTH - fw) / 2, (halfH - fh) / 2, fw, fh)
 
     // Back (bottom half) — vertically centered in lower half
     const back = loadedImages[1]!
-    const backScale = Math.min(cardTargetW / back.naturalWidth, cardTargetH / back.naturalHeight)
+    const backScale = fitScale(back)
     const bw = back.naturalWidth * backScale
     const bh = back.naturalHeight * backScale
     ctx.drawImage(back, (A4_WIDTH - bw) / 2, halfH + (halfH - bh) / 2, bw, bh)
   } else {
-    // Single image: centered on A4
-    // Standard ID card aspect ratio 85.6/53.98 ≈ 1.586
-    // Target area ~80% width × ~50% height of A4
+    // Single image: centered on A4.
+    // Target area ~80% width × ~50% height of A4.
+    // scale capped at 1 → never upscale a low-res source (avoids blur).
     const img = loadedImages[0]!
     const targetW = A4_WIDTH * 0.8
     const targetH = A4_HEIGHT * 0.5
     const scale = Math.min(
       targetW / img.naturalWidth,
       targetH / img.naturalHeight,
+      1,
     )
     const w = img.naturalWidth * scale
     const h = img.naturalHeight * scale

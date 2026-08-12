@@ -74,25 +74,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* Container: light gray background (use theme variable so it adapts to dark mode),
+   centered A4 paper with shadow */
 .preview-area {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 16px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* Container: light gray background (matches design #f3f4f6), centered A4 paper with shadow */
-.preview-area {
-  flex: 1;
-  display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   min-height: 0;
   overflow: auto;
@@ -154,7 +145,7 @@ onUnmounted(() => {
 }
 
 .ph-label {
-  font-size: 0.78rem;
+  font-size: 0.58rem;
   color: #a4abb8;
   font-weight: 500;
 }
