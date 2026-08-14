@@ -162,14 +162,14 @@ export const CARD_TYPES: CardType[] = [
 export function createDefaultWatermarkConfig(): WatermarkConfig {
   return {
     text: '',
-    opacity: 0.3,
-    fontSize: 32,
-    color: '#000000',
+    opacity: 0.5,
+    fontSize: 48,
+    color: '#838383',
     position: 'tile',
     tileGapX: 200,
     tileGapY: 200,
     angle: -45,
-    density: 0.1,
+    density: 0.5,
   }
 }
 
@@ -398,11 +398,15 @@ export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): 
 
   switch (config.position) {
     case 'tile': {
-      // Density 0..1 maps to gap: low density = large gap, high = small gap
-      // base 200 px, scaled to 60 (high) .. 400 (low)
-      const baseGap = 60 + (1 - config.density) * 340
-      const gapX = baseGap
-      const gapY = baseGap
+      // Density 0..1 controls how tight the watermark tiles are.
+      // gap is expressed as a multiple of fontSize so the spacing reads
+      // consistently regardless of font size and canvas resolution.
+      //   density = 1 (max)  -> factor 1.5  -> very dense
+      //   density = 0 (min)  -> factor 28   -> very sparse
+      // Linear in between so the whole 0..100 slider is perceptible.
+      const factor = 1.5 + (1 - config.density) * 26.5
+      const gapX = config.fontSize * factor
+      const gapY = config.fontSize * factor
       for (let y = gapY / 2; y < canvas.height; y += gapY) {
         for (let x = gapX / 2; x < canvas.width; x += gapX) {
           drawRotatedText(ctx, x, y)
@@ -569,15 +573,16 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
     ctx.drawImage(back, (A4_WIDTH - bw) / 2, halfH + (halfH - bh) / 2, bw, bh)
   } else {
     // Single image: centered on A4.
-    // Target area ~80% width × ~50% height of A4.
-    // scale capped at 1 → never upscale a low-res source (avoids blur).
+    // Use a large target area so the image appears prominently on the sheet.
+    // For low-res sources, allow upscaling to FILL the target area (capped at
+    // MAX_UPSCALE) so they don't look tiny; for high-res sources only downscale.
     const img = loadedImages[0]!
-    const targetW = A4_WIDTH * 0.8
-    const targetH = A4_HEIGHT * 0.5
+    const targetW = A4_WIDTH * 0.9
+    const targetH = A4_HEIGHT * 0.8
     const scale = Math.min(
       targetW / img.naturalWidth,
       targetH / img.naturalHeight,
-      1,
+      img.naturalWidth < targetW || img.naturalHeight < targetH ? MAX_UPSCALE : 1,
     )
     const w = img.naturalWidth * scale
     const h = img.naturalHeight * scale
