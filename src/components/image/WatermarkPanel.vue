@@ -90,6 +90,8 @@ const densityPercent = computed(() => Math.round(density.value * 100))
         </div>
       </div>
 
+      <!-- Scale on A4 removed: moved to upload area below -->
+
       <!-- Opacity + Size row -->
       <div class="config-item">
         <div class="slider-row">

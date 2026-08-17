@@ -27,6 +27,8 @@ const { t, locale } = useI18n()
 const selectedCardTypeId = ref<string | null>(null)
 const slots = ref<ImageSlot[]>([])
 const watermark = ref<WatermarkConfig>(createDefaultWatermarkConfig())
+const imageScale = ref(0.5) // 0..1, controls rendered image size on the A4 sheet
+const scalePercent = computed(() => Math.round(imageScale.value * 100))
 const isCropping = ref(false)
 const croppingSlotIndex = ref(-1)
 const cropImageDataUrl = ref('')
@@ -210,7 +212,7 @@ async function handleExport() {
 
   try {
     const blobs = activeSlots.map((s) => s.croppedBlob!)
-    const a4Blob = await composeOnA4(blobs, isDoubleSided.value)
+    const a4Blob = await composeOnA4(blobs, isDoubleSided.value, imageScale.value)
     const watermarked = await applyWatermark(a4Blob, watermark.value)
     const timestamp = new Date().toISOString().slice(0, 10)
     const cardType = currentCardType.value
@@ -278,6 +280,26 @@ onUnmounted(() => {
             </div>
           </section>
 
+          <!-- Image scale on A4 (placed under upload area) -->
+          <section class="section scale-section">
+            <div class="config-item">
+              <div class="slider-row">
+                <label class="config-label">{{ $t('scale') }}</label>
+                <span class="config-val">{{ scalePercent }}%</span>
+              </div>
+              <div class="slider-row">
+                <input
+                  type="range"
+                  class="slider"
+                  min="0"
+                  max="100"
+                  :value="scalePercent"
+                  @input="imageScale = Number(($event.target as HTMLInputElement).value) / 100"
+                />
+              </div>
+            </div>
+          </section>
+
           <!-- Watermark Panel -->
           <section class="section">
             <WatermarkPanel v-model="watermark" />
@@ -297,7 +319,12 @@ onUnmounted(() => {
 
         <!-- Right Column: Preview -->
         <div class="right-col">
-          <PreviewArea :slots="slots" :watermark="watermark" :is-double-sided="isDoubleSided" />
+          <PreviewArea
+            :slots="slots"
+            :watermark="watermark"
+            :is-double-sided="isDoubleSided"
+            :image-scale="imageScale"
+          />
         </div>
       </div>
     </template>
@@ -371,6 +398,45 @@ onUnmounted(() => {
 
 .upload-section {
   width: 100%;
+}
+
+.scale-section {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.config-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.config-val {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider {
+  width: 100%;
+  accent-color: var(--accent-color, #3b82f6);
+  cursor: pointer;
 }
 
 .upload-hint {

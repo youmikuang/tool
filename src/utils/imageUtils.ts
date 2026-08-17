@@ -351,31 +351,28 @@ export function cropImage(image: HTMLImageElement, config: CropConfig): Promise<
 // Core: Apply Watermark
 // ============================================================
 
-export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): Promise<Blob> {
-  const img = await blobToImage(imageBlob)
+// Render a transparent watermark overlay sized to (width × height).
+// The overlay only depends on the watermark config and canvas size — it is
+// independent of the underlying image, so it can be cached and reused when
+// only the image layout (e.g. zoom) changes.
+export async function createWatermarkOverlay(
+  width: number,
+  height: number,
+  config: WatermarkConfig,
+): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas')
-  canvas.width = img.naturalWidth
-  canvas.height = img.naturalHeight
+  canvas.width = width
+  canvas.height = height
   const ctx = canvas.getContext('2d')
 
   if (!ctx) {
     throw new Error('Canvas 2D context not available')
   }
 
-  // Draw original image
-  ctx.drawImage(img, 0, 0)
-
-  // If watermark text is empty, return original image
   if (!config.text.trim()) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Failed to create blob'))
-      }, 'image/png')
-    })
+    return canvas
   }
 
-  // Setup watermark style
   ctx.globalAlpha = config.opacity
   ctx.fillStyle = config.color
   ctx.font = `${config.fontSize}px sans-serif`
@@ -387,7 +384,6 @@ export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): 
   const padding = 20
   const angleRad = (config.angle * Math.PI) / 180
 
-  // Helper to draw rotated text at a point (use ctxCtx to satisfy TS null-narrowing in closure)
   const drawRotatedText = (cx: CanvasRenderingContext2D, x: number, y: number) => {
     cx.save()
     cx.translate(x, y)
@@ -407,17 +403,15 @@ export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): 
       const factor = 1.5 + (1 - config.density) * 26.5
       const gapX = config.fontSize * factor
       const gapY = config.fontSize * factor
-      for (let y = gapY / 2; y < canvas.height; y += gapY) {
-        for (let x = gapX / 2; x < canvas.width; x += gapX) {
+      for (let y = gapY / 2; y < height; y += gapY) {
+        for (let x = gapX / 2; x < width; x += gapX) {
           drawRotatedText(ctx, x, y)
         }
       }
       break
     }
     case 'center': {
-      const cx = canvas.width / 2
-      const cy = canvas.height / 2
-      drawRotatedText(ctx, cx, cy)
+      drawRotatedText(ctx, width / 2, height / 2)
       break
     }
     case 'topLeft': {
@@ -425,21 +419,40 @@ export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): 
       break
     }
     case 'topRight': {
-      drawRotatedText(ctx, canvas.width - textWidth / 2 - padding, padding + textHeight / 2)
+      drawRotatedText(ctx, width - textWidth / 2 - padding, padding + textHeight / 2)
       break
     }
     case 'bottomLeft': {
-      drawRotatedText(ctx, padding + textWidth / 2, canvas.height - textHeight / 2 - padding)
+      drawRotatedText(ctx, padding + textWidth / 2, height - textHeight / 2 - padding)
       break
     }
     case 'bottomRight': {
-      drawRotatedText(
-        ctx,
-        canvas.width - textWidth / 2 - padding,
-        canvas.height - textHeight / 2 - padding,
-      )
+      drawRotatedText(ctx, width - textWidth / 2 - padding, height - textHeight / 2 - padding)
       break
     }
+  }
+
+  return canvas
+}
+
+// Apply a watermark on top of an existing image blob (used for export).
+export async function applyWatermark(imageBlob: Blob, config: WatermarkConfig): Promise<Blob> {
+  const img = await blobToImage(imageBlob)
+  const canvas = document.createElement('canvas')
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const ctx = canvas.getContext('2d')
+
+  if (!ctx) {
+    throw new Error('Canvas 2D context not available')
+  }
+
+  // Draw original image
+  ctx.drawImage(img, 0, 0)
+
+  if (config.text.trim()) {
+    const overlay = await createWatermarkOverlay(canvas.width, canvas.height, config)
+    ctx.drawImage(overlay, 0, 0)
   }
 
   return new Promise((resolve, reject) => {
@@ -512,7 +525,19 @@ const MAX_UPSCALE = 2
 // Compose one or more image blobs onto a fixed A4 canvas (white background).
 // For double-sided, front is placed in the upper half, back in the lower half.
 // Images are scaled down to fit when needed, but never scaled up.
-export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promise<Blob> {
+// `imageScale` (0..1) shrinks/enlarges the rendered image's footprint on the
+// A4 sheet relative to the default (0.5 ≈ default sizing).
+// Compose one or more image blobs onto a fixed A4 canvas (white background)
+// and return the raw canvas. Returning the canvas lets callers (e.g. the live
+// preview) draw additional layers (watermark overlay) without an extra
+// encode→decode round-trip on the huge 2480×3508 bitmap.
+export async function composeOnA4Canvas(
+  images: Blob[],
+  isDoubleSided: boolean,
+  imageScale = 0.5,
+): Promise<HTMLCanvasElement> {
+  // Keep imageScale within a sane range (10%..150% of default footprint).
+  const s = Math.max(0.1, Math.min(1.5, imageScale))
   const canvas = document.createElement('canvas')
   canvas.width = A4_WIDTH
   canvas.height = A4_HEIGHT
@@ -531,12 +556,7 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
   ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT)
 
   if (images.length === 0) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Failed to create blob'))
-      }, 'image/png')
-    })
+    return canvas
   }
 
   const loadedImages = await Promise.all(images.map((b) => blobToImage(b)))
@@ -545,8 +565,9 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
     // Double-sided: front in upper half, back in lower half
     const halfH = A4_HEIGHT / 2
     // Larger target area so the cards appear bigger on the A4 sheet.
-    const cardTargetW = A4_WIDTH
-    const cardTargetH = halfH
+    // `s` scales the footprint on the A4 sheet per the slider.
+    const cardTargetW = A4_WIDTH * s
+    const cardTargetH = halfH * s
 
     // Helper: scale that FILLS the target area (may be > 1 for low-res sources),
     // but capped at MAX_UPSCALE so a tiny source is not stretched absurdly.
@@ -577,8 +598,8 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
     // For low-res sources, allow upscaling to FILL the target area (capped at
     // MAX_UPSCALE) so they don't look tiny; for high-res sources only downscale.
     const img = loadedImages[0]!
-    const targetW = A4_WIDTH * 0.9
-    const targetH = A4_HEIGHT * 0.8
+    const targetW = A4_WIDTH * 0.9 * s
+    const targetH = A4_HEIGHT * 0.8 * s
     const scale = Math.min(
       targetW / img.naturalWidth,
       targetH / img.naturalHeight,
@@ -589,6 +610,15 @@ export async function composeOnA4(images: Blob[], isDoubleSided: boolean): Promi
     ctx.drawImage(img, (A4_WIDTH - w) / 2, (A4_HEIGHT - h) / 2, w, h)
   }
 
+  return canvas
+}
+
+export async function composeOnA4(
+  images: Blob[],
+  isDoubleSided: boolean,
+  imageScale = 0.5,
+): Promise<Blob> {
+  const canvas = await composeOnA4Canvas(images, isDoubleSided, imageScale)
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob)

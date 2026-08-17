@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { ImageSlot, WatermarkConfig } from '@/utils/imageUtils'
-import { composeOnA4, applyWatermark, blobToDataUrl } from '@/utils/imageUtils'
+import {
+  A4_WIDTH,
+  A4_HEIGHT,
+  composeOnA4Canvas,
+  createWatermarkOverlay,
+  blobToDataUrl,
+} from '@/utils/imageUtils'
 
 defineOptions({ inheritAttrs: true })
 
@@ -9,11 +15,33 @@ const props = defineProps<{
   slots: ImageSlot[]
   watermark: WatermarkConfig
   isDoubleSided: boolean
+  imageScale: number
 }>()
 
 // Live preview data URL
 const previewDataUrl = ref<string | null>(null)
 let previewTimer: ReturnType<typeof setTimeout> | null = null
+
+// Cache the watermark overlay. The overlay only depends on the watermark
+// config and the fixed A4 canvas size, NOT on the image layout. So when only
+// the zoom (imageScale) changes we reuse the cached layer and skip the
+// expensive tile rendering — making the zoom slider much more responsive.
+let overlayCache: { key: string; canvas: HTMLCanvasElement } | null = null
+
+async function getWatermarkOverlay(): Promise<HTMLCanvasElement | null> {
+  if (!props.watermark.text.trim()) {
+    overlayCache = null
+    return null
+  }
+  const key = JSON.stringify(props.watermark)
+  if (!overlayCache || overlayCache.key !== key) {
+    overlayCache = {
+      key,
+      canvas: await createWatermarkOverlay(A4_WIDTH, A4_HEIGHT, props.watermark),
+    }
+  }
+  return overlayCache.canvas
+}
 
 async function regeneratePreview() {
   if (previewTimer) clearTimeout(previewTimer)
@@ -25,16 +53,31 @@ async function regeneratePreview() {
     }
     try {
       const blobs = activeSlots.map((s) => s.croppedBlob!)
-      const a4 = await composeOnA4(blobs, props.isDoubleSided)
-      const watermarked = await applyWatermark(a4, props.watermark)
-      previewDataUrl.value = await blobToDataUrl(watermarked)
+      // Get the composed A4 canvas directly (no encode/decode round-trip).
+      const a4Canvas = await composeOnA4Canvas(
+        blobs,
+        props.isDoubleSided,
+        props.imageScale ?? 0.5,
+      )
+      const ctx = a4Canvas.getContext('2d')
+      if (!ctx) return
+      // Stamp the (cached) watermark overlay, then encode only ONCE.
+      const overlay = await getWatermarkOverlay()
+      if (overlay) ctx.drawImage(overlay, 0, 0)
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        a4Canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+          'image/png',
+        ),
+      )
+      previewDataUrl.value = await blobToDataUrl(blob)
     } catch (err) {
       console.error('Preview generation failed:', err)
     }
-  }, 200)
+  }, 80)
 }
 
-watch(() => [props.slots, props.watermark, props.isDoubleSided], regeneratePreview, { deep: true })
+watch(() => [props.slots, props.watermark, props.isDoubleSided, props.imageScale], regeneratePreview, { deep: true })
 
 const hasContent = computed(() => props.slots.some((s) => s.croppedBlob))
 
