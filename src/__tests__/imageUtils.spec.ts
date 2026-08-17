@@ -169,9 +169,9 @@ describe('createDefaultWatermarkConfig', () => {
   it('should return default values', () => {
     const config = createDefaultWatermarkConfig()
     expect(config.text).toBe('')
-    expect(config.opacity).toBe(0.3)
+    expect(config.opacity).toBe(0.5)
     expect(config.fontSize).toBe(48)
-    expect(config.color).toBe('#000000')
+    expect(config.color).toBe('#838383')
     expect(config.position).toBe('tile')
     expect(config.tileGapX).toBe(200)
     expect(config.tileGapY).toBe(200)
